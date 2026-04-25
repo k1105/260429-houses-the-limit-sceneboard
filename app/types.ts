@@ -24,6 +24,7 @@ export type Cut = {
   summary_jp: string;
   status: string;
   revision_memo: string;
+  include_car_reference: boolean;
   camera: string;
   scene_en: string;
   video_prompt_en: string;

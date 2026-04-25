@@ -86,6 +86,7 @@ function writeCutFile(cut: CutFile) {
     summary_jp: cut.summary_jp,
     status: cut.status,
     revision_memo: cut.revision_memo,
+    include_car_reference: cut.include_car_reference,
     selected_image: cut.selected_image,
   };
   const body = [

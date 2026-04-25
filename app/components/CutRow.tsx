@@ -76,6 +76,17 @@ export function CutRow({ cut, getStyleText, getNegativeText, onSave, onAfterGene
                   onBlur={(e) => patch("setting", e.target.value)}
                 />
               </label>
+              <label className="checkbox-meta">
+                <input
+                  type="checkbox"
+                  checked={cut.include_car_reference}
+                  onChange={(e) => patch("include_car_reference", e.target.checked)}
+                />
+                include_car_reference
+                <span className="meta-hint">
+                  （OFF にすると車のリファレンス画像と car-clause を生成リクエストから外す）
+                </span>
+              </label>
             </div>
           </div>
         )}
