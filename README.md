@@ -88,6 +88,7 @@ The buildings and car holding their positions while subtle parallax shifts cycle
 | `status` | `draft` / `reviewing` / `approved` のいずれか | **エージェントは変更しない**。人間がレビュー結果として動かす |
 | `revision_memo` | **修正指示の置き場（後述）** | ここを **読んで** 本文を直す。空文字 `''` に戻すかどうかは §4 のルール参照 |
 | `selected_image` | スタイル別に「採用中」のファイル名 | **絶対に触らない**。サーバが自動更新する |
+| `include_car_reference` | このカットで車（黒いセダン）を登場させるか。`true`/`false`。**未指定時は `true` 扱い**。`false` のとき、`car-reference.jpeg` の同梱と `common-style/car-clause.txt` の連結をスキップする | ユーザ指示があれば編集可（クローズアップ・車のないシーン等で `false` に） |
 
 ### 2.3 本文セクションの役割
 
@@ -107,9 +108,12 @@ The buildings and car holding their positions while subtle parallax shifts cycle
   名前を変えるとパースが壊れます。
 - 各セクションは見出しの下に空行 1 行 → 本文 → 空行 1 行、という形を維持してください。
 - `scene_en` は **英語の単一段落**。改行は入れないのが既存の慣例です（モデルは英語のほうが安定）。
-- `scene_en` の中で **車を出す場合**、共通スタイル側に「the exact black sedan shown in the reference image」
-  という固定文があるので、車の色や車種を `scene_en` 内で別設定で書き直さないでください
-  （矛盾するとモデルが片方を採用してしまう）。
+- `scene_en` の中で **車を出す場合**、`common-style/car-clause.txt` に「the exact black sedan shown in the reference image」
+  という固定文があり、`include_car_reference: true`（既定値）のときに stylePrompt に連結されます。
+  車の色や車種を `scene_en` 内で別設定で書き直さないでください（矛盾するとモデルが片方を採用してしまう）。
+- 車のないクローズアップや、舞台に車が存在しない章のカットでは
+  frontmatter に `include_car_reference: false` を立てる。サーバ側で `car-reference.jpeg` の同梱と
+  `car-clause.txt` の連結が自動でスキップされます（`scene_en` に「No car visible…」のような否定文を書き足す必要はありません）。
 
 ### 2.5 カットの追加・削除・分割・リネーム
 
@@ -310,10 +314,12 @@ Found: narratives=0, cuts=2
 | `game.txt` | PS1 期のローポリ 3D、ピクセルテクスチャ、ドローディスタンスの霧 |
 | `camera.txt` | 90 年代後半〜2000 年代初頭のフィルム写真風、粒子・ハレーション・ブルーム |
 | `negative.txt` | 全スタイル共通で「避けたい絵」リスト（写実、PBR、アニメ調、判読可能な日本語など） |
+| `car-clause.txt` | 車のリファレンス画像と食い違わせないための固定フレーズ（"the exact black sedan shown in the reference image …"）。`include_car_reference: true`（既定値）のときに当該 style の本文の末尾に連結される |
 
-`illustration.txt` / `game.txt` / `camera.txt` の各ファイル末尾には、車のリファレンス画像と
-食い違わせないための固定フレーズ（"the exact black sedan shown in the reference image …"）が
-入っています。**この一文を消したり、車種を上書きする文を追加したりしないでください**。
+`car-clause.txt` の文面は、車のリファレンス画像との整合を保つための拘束です。
+**この一文を消したり、車種を上書きする文を追加したりしないでください**。
+車を映さないカットでは個別カットの frontmatter で `include_car_reference: false` を立てて
+`car-clause.txt` ごとリクエストから外す運用です（§2.4 末尾参照）。
 
 ユーザの指示が「全カットでこう」「あるスタイル全体でこう」のときに、ここを編集します。
 編集はすべての関連カットの生成結果に波及するので、影響範囲をユーザに確認してから

@@ -294,7 +294,12 @@ app.post("/api/generate", async (req, res) => {
 
   const styleText = cache.commonStyle.get(style) ?? "";
   const negativeText = cache.commonStyle.get("negative") ?? "";
-  const carRef = resolveCarReference(dirs.dataDir);
+  const carClause = cache.commonStyle.get("car-clause") ?? "";
+  const includeCarRef = cut.include_car_reference !== false;
+  const carRef = includeCarRef ? resolveCarReference(dirs.dataDir) : null;
+  const stylePrompt = includeCarRef && carClause
+    ? `${styleText}\n\n${carClause}`.trim()
+    : styleText;
   const cellDir = join(dirs.imagesDir, "gemini", style, cutId);
   const thumbDir = join(dirs.imagesDir, "thumbs", style, cutId);
 
@@ -303,7 +308,7 @@ app.post("/api/generate", async (req, res) => {
     style,
     model,
     scenePrompt: cut.scene_en,
-    stylePrompt: styleText,
+    stylePrompt,
     negativePrompt: negativeText,
     carReferencePath: carRef,
     cellDir,

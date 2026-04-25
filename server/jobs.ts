@@ -161,16 +161,21 @@ export class JobManager {
 
     const styleText = cache.commonStyle.get(item.style) ?? "";
     const negativeText = cache.commonStyle.get("negative") ?? "";
+    const carClause = cache.commonStyle.get("car-clause") ?? "";
+    const includeCarRef = cut.include_car_reference !== false;
+    const carRef = includeCarRef ? resolveCarReference(dataDir) : null;
+    const stylePrompt = includeCarRef && carClause
+      ? `${styleText}\n\n${carClause}`.trim()
+      : styleText;
     const cellDir = join(imagesDir, "gemini", item.style, item.cut_id);
     const thumbDir = join(imagesDir, "thumbs", item.style, item.cut_id);
-    const carRef = resolveCarReference(dataDir);
 
     const result = await generateImage({
       cutId: item.cut_id,
       style: item.style,
       model: job.model,
       scenePrompt: cut.scene_en,
-      stylePrompt: styleText,
+      stylePrompt,
       negativePrompt: negativeText,
       carReferencePath: carRef,
       cellDir,

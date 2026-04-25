@@ -20,7 +20,8 @@ export type GenerateInput = {
   scenePrompt: string;
   stylePrompt: string;
   negativePrompt: string;
-  carReferencePath: string;
+  /** Absolute path to the car reference image, or null to skip sending it. */
+  carReferencePath: string | null;
   cellDir: string;
   thumbDir: string;
 };
@@ -82,28 +83,26 @@ export async function generateImage(input: GenerateInput): Promise<GenerateResul
   if (!SUPPORTED_STYLES.includes(input.style)) {
     return { ok: false, error: `unsupported style: ${input.style}` };
   }
-  if (!existsSync(input.carReferencePath)) {
+  if (input.carReferencePath !== null && !existsSync(input.carReferencePath)) {
     return { ok: false, error: `car reference not found: ${input.carReferencePath}` };
   }
 
   const client = getClient();
   const prompt = buildPrompt(input);
-  const carBytes = readFileSync(input.carReferencePath);
-  const carBase64 = carBytes.toString("base64");
+
+  const requestParts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [
+    { text: prompt },
+  ];
+  if (input.carReferencePath !== null) {
+    const carBytes = readFileSync(input.carReferencePath);
+    requestParts.push({ inlineData: { mimeType: "image/jpeg", data: carBytes.toString("base64") } });
+  }
 
   let response;
   try {
     response = await client.models.generateContent({
       model: input.model,
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType: "image/jpeg", data: carBase64 } },
-          ],
-        },
-      ],
+      contents: [{ role: "user", parts: requestParts }],
     });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

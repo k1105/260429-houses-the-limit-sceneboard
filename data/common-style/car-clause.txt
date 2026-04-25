@@ -1,0 +1,1 @@
+The car in the scene is the exact black sedan shown in the reference image — preserve its black body color, its silhouette and proportions from the reference image, and do not invent a different car or change its color.

@@ -20,6 +20,8 @@ export type CutFile = {
   video_prompt_en: string;
   /** filename per style, "" = none/auto */
   selected_image: Record<ImageStyle, string>;
+  /** When false, skip the car reference image and the car-clause text in generation. Default true. */
+  include_car_reference: boolean;
 };
 
 export type NarrativeFile = {
@@ -109,6 +111,7 @@ function readCut(path: string): CutFile | null {
     scene_en: sections.scene_en ?? "",
     video_prompt_en: sections.video_prompt_en ?? "",
     selected_image: readSelected(data as Record<string, unknown>),
+    include_car_reference: data.include_car_reference !== false,
   };
 }
 
