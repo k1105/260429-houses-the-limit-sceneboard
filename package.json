@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "migrate": "tsx scripts/migrate.ts",
+    "feedback": "tsx scripts/collect-feedback.ts",
     "server": "tsx watch server/index.ts",
     "web": "vite",
     "dev": "concurrently -n server,web -c blue,green \"npm:server\" \"npm:web\"",

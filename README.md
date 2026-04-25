@@ -79,7 +79,7 @@ The buildings and car holding their positions while subtle parallax shifts cycle
 
 | フィールド | 意味 | エージェントが触ってよいか |
 |---|---|---|
-| `cut_id` | カット識別子。ファイル名と一致 | **触らない**（リネームは UI 経由でないと整合性が崩れる） |
+| `cut_id` | カット識別子。**ファイル名（拡張子を除く）と必ず一致させる** | 値の書き換えは原則しない（リネームしたいときは §2.5 の手順） |
 | `part` | 章番号（1〜7） | 触らない |
 | `dj` | 担当 DJ。章ごとに固定 | 触らない |
 | `setting` | 舞台の和文ラベル | ユーザ指示があれば編集可 |
@@ -110,6 +110,68 @@ The buildings and car holding their positions while subtle parallax shifts cycle
 - `scene_en` の中で **車を出す場合**、共通スタイル側に「the exact black sedan shown in the reference image」
   という固定文があるので、車の色や車種を `scene_en` 内で別設定で書き直さないでください
   （矛盾するとモデルが片方を採用してしまう）。
+
+### 2.5 カットの追加・削除・分割・リネーム
+
+カット数は固定ではありません。章の構成を見直す中でカットが増えたり減ったり、
+1 つを 2 つに割ったり（`2-1` → `2-1` + `2-1b`）することがあります。
+仕組みとしては **`data/cuts/` 配下に正しい命名で `.md` を置く / 消すだけ** で、
+サーバ側（`server/cache.ts` の chokidar watcher）が自動で `add` / `unlink` を拾います。
+ただし以下のルールを守ってください。
+
+#### 命名規約（`{part}-{seq}.md`）
+
+`seq` 部分は次のパターンが認識されます（`server/index.ts` の `parseSuffix()`）：
+
+| 形式 | 例 | 用途 |
+|---|---|---|
+| `{n}` | `2-3` | 通常のシーケンシャルカット |
+| `{n}{tail}` | `2-1b`, `2-1c` | 既存カットの直後に挿入する派生カット（分割の片割れ等） |
+| `m{n}` | `2-m1`, `2-m2` | クローズアップやインサート等の extra カット（ソート順は通常カットの後ろ） |
+| `s{n}` | `2-s1`, `2-s2` | 補助カット（`m` と同様に通常カットの後ろにソートされるが、命名上 `s` を使い分けたい場合） |
+
+並び順は「`part` 昇順 → main(`{n}`/`{n}{tail}`) → extra(`m{n}`) → 数値昇順 → tail 文字列昇順」です。
+新カットの ID を決めるときは、章内の既存ファイルを `ls data/cuts/{part}-*.md` で確認してから命名してください。
+
+#### 追加するとき（新規カット）
+
+1. ファイル名 `data/cuts/{cut_id}.md` を決める。**フロントマターの `cut_id` とファイル名（`.md` を除く）を一致させる。**
+2. 既存カットを 1 つコピーしてフロントマターを書き換えるのが安全：
+   - `cut_id` をファイル名と揃える
+   - `part` / `dj` / `setting` を該当章に合わせる（`dj` は章ごとに固定。`data/narratives/part-{N}.md` の `dj` と同じ値）
+   - `title_jp` / `summary_jp` を新カット用に書き直す
+   - `status: draft`、`revision_memo: ''`
+   - **`selected_image` は `{ illustration: '', game: '', camera: '' }` と空文字で初期化**（既存カットの値をコピーしないこと。別カットの画像が誤採用される）
+3. 本文の `## camera` / `## scene_en` / `## video_prompt_en` を埋める。
+4. UI を再読み込みすれば章ビューに新カットが現れます（chokidar が拾うので再起動不要）。
+
+#### 削除するとき
+
+1. `data/cuts/{cut_id}.md` を消す。
+2. 生成済み画像 `data/images/gemini/*/{cut_id}/` と `data/images/thumbs/*/{cut_id}/` は **自動では消えない**。
+   不要なら手で消してください（残しておいても UI からは見えなくなるだけで害はない）。
+3. このカットを参照している `revision_memo` が他にないか、`npm run feedback` で確認しておくと安全です。
+
+#### 分割するとき（例: `2-1` を `2-1` + `2-1b` に割る）
+
+1. `data/cuts/2-1.md` をコピーして `data/cuts/2-1b.md` を作る。
+2. 両方の `cut_id` をそれぞれ `2-1` / `2-1b` に修正。
+3. **`selected_image` を空文字にリセット**（`2-1` の生成済み画像が `2-1b` にも採用された状態になるのを防ぐ）。
+4. `scene_en` を「前半」「後半」に書き分ける。`title_jp` / `summary_jp` も合わせる。
+5. 元の `2-1` の `revision_memo` に分割の旨を残しておくとレビューが楽です（任意）。
+
+#### リネームするとき（`cut_id` を変えたい）
+
+ファイル名と `cut_id` は必ず一致するので、両方を同時に変える必要があります。
+さらに **画像ディレクトリも `cut_id` をパスに含む** ため、生成済み画像を保持したい場合は手作業の移動が要ります。
+
+1. `data/cuts/{old}.md` の中の `cut_id: {new}` に書き換える。
+2. ファイル名を `data/cuts/{new}.md` にリネーム。
+3. 画像を残したい場合：
+   - `data/images/gemini/{style}/{old}/` を `data/images/gemini/{style}/{new}/` に移動（3 スタイル分）
+   - `data/images/thumbs/{style}/{old}/` も同様に移動
+4. リネーム後に UI から該当カットを開いて、採用画像が正しく表示されているか確認。
+5. リネームは整合性を崩しやすいので、**避けられるなら新規追加 + 旧削除のほうが安全**。
 
 ---
 
@@ -201,6 +263,40 @@ revision_memo: 'illustration だけ色が浅い。共通スタイル側ではな
 このプロジェクトのカット数（70+）からして、エージェントが推測で広範囲を書き換えると
 チェック負荷が爆発するためです。
 
+### 4.4 まとめて取り出す: `npm run feedback`
+
+カットや章をひとつずつ開いて `revision_memo` を読むのは効率が悪いので、
+**空でない `revision_memo` を全件 Markdown で吐き出すスクリプト** を用意してあります。
+
+```bash
+npm run feedback                 # 標準出力に Markdown を出す
+npm run feedback -- -o todo.md   # ファイルに書き出す
+```
+
+出力は章ごとにまとまった形式です：
+
+```markdown
+# Revision feedback (collected)
+
+Generated: 2026-04-25T04:25:19.848Z
+Found: narratives=0, cuts=2
+
+## Part 1
+
+### 1-m1 — 中央大噴水のクローズアップ _(status: draft)_
+
+> 噴水のみのカットでok. 車は登場させない。
+
+### 1-m2 — はりぼて宮殿のゴシック柱頭クローズアップ _(status: draft)_
+
+> 車は登場させない。
+```
+
+エージェントとの作業セッションを始めるときに、このスクリプトの出力を冒頭に貼り付けて
+「これ全部こなして」と渡すのが基本フローになります。スクリプトは `data/cuts/*.md` と
+`data/narratives/*.md` を直接読むだけなので、サーバが起動していなくても動きます。
+実装は `scripts/collect-feedback.ts`。
+
 ---
 
 ## 5. 共通スタイル `data/common-style/*.txt`
@@ -258,10 +354,11 @@ GOOGLE_API_KEY=xxxxxxxx        # または GEMINI_API_KEY
 開発起動：
 
 ```bash
-npm run dev      # サーバ(5174) と Vite を同時起動
-npm run server   # サーバのみ
-npm run web      # Vite のみ
-npm run build    # 本番ビルド
+npm run dev        # サーバ(5174) と Vite を同時起動
+npm run server     # サーバのみ
+npm run web        # Vite のみ
+npm run build      # 本番ビルド
+npm run feedback   # 全カット/章の revision_memo を Markdown で出力（§4.4）
 ```
 
 ---
@@ -269,8 +366,10 @@ npm run build    # 本番ビルド
 ## 8. エージェント向けチートシート
 
 - ユーザ指示の窓口は **`revision_memo`**。書式自由。読んで意図を解釈する。
+- まとめて拾うときは **`npm run feedback`**（§4.4）。
 - 直すのは原則 **当該カットの `## scene_en`**。必要なら `## camera` も整合を取る。
 - 全カット共通の指示なら **`data/common-style/*.txt`**。範囲が広いので必要に応じて確認を取る。
 - **触らない**: `cut_id` / `part` / `dj` / `status` / `selected_image` / 車に関する固定フレーズ。
 - 修正後 `revision_memo` を **空にしない**。空にするのは人間の役目。
 - 曖昧な指示は推測せず聞き返す。
+- カットの追加・削除・分割・リネームの手順は §2.5。`selected_image` の初期化忘れに注意。
